@@ -1,0 +1,41 @@
+name: Generare and Push
+run-name: Generating missing headers and push new tag
+on:
+  push:
+    tags-ignore:
+      - '*-cross'
+
+jobs:
+  generate-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install \
+              build-essential \
+              libelf-dev \
+              zlib1g-dev
+      - name: Configure
+        run: |
+          autoreconf --install --force
+          ./configure --disable-debuginfod --enable-maintainer-mode \
+            --without-zstd --disable-libdebuginfod
+      - name: Build
+        run: |
+          make -C lib libeu.a
+          make dist
+      - name: Push
+        run: |
+          # Detach HEAD
+          git checkout --detach
+          # Commit generated headers
+          git add -f libdw/known-dwarf.h libcpu/x86_64_dis.h libcpu/i386_dis.h
+          git commit -m "generate headers"
+          # Create tag
+          git tag ${{ github.ref_name }}
+          # Publish tag
+          git push --tags
+      
